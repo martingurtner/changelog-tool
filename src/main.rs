@@ -46,26 +46,57 @@ enum EntryType {
     Removed,
 }
 
-fn generate_changelog_entry_file_name(
-    message: &String,
-    issue_number: &Option<u32>,
-    mr_number: &Option<u32>,
-) -> String {
+struct Entry<'a> {
+    entry_type: &'a EntryType,
+    message: &'a String,
+    issue_number: &'a Option<u32>,
+    mr_number: &'a Option<u32>,
+}
+
+fn generate_changelog_entry_string(entry: &Entry) -> String {
+    let mut entry_str = String::with_capacity(500);
+
+    match entry.entry_type {
+        EntryType::Added => entry_str.push_str("Added: "),
+        EntryType::Fixed => entry_str.push_str("Fixed: "),
+        EntryType::Removed => entry_str.push_str("Removed: "),
+    };
+
+    entry_str.push_str(entry.message);
+
+    if let Some(mr_n) = entry.mr_number {
+        entry_str.push_str(&format!(
+            " [MR ${mr_n}](https://link/to/{mr_n}): {mr_n}",
+            mr_n = mr_n
+        ));
+    }
+
+    if let Some(issue_n) = entry.issue_number {
+        entry_str.push_str(&format!(
+            " [Issue #{issue_n}](https://link/to/{issue_n})",
+            issue_n = issue_n
+        ));
+    }
+
+    entry_str
+}
+
+fn generate_changelog_entry_file_name(entry: &Entry) -> String {
     let mut entry_file_name = String::with_capacity(100);
 
-    if let Some(issue_n) = issue_number {
+    if let Some(issue_n) = entry.issue_number {
         entry_file_name.push_str("IN");
         entry_file_name.push_str(&issue_n.to_string());
         entry_file_name.push('_');
     }
 
-    if let Some(mr_n) = mr_number {
+    if let Some(mr_n) = entry.mr_number {
         entry_file_name.push_str("MR");
         entry_file_name.push_str(&mr_n.to_string());
         entry_file_name.push('_');
     }
 
-    for c in message.chars() {
+    for c in entry.message.chars() {
         if c.is_whitespace() {
             entry_file_name.push('_');
         } else {
@@ -88,32 +119,16 @@ fn main() -> std::io::Result<()> {
             issue_number,
             entry_dir_path,
         }) => {
-            let mut entry_str = String::with_capacity(500);
-
-            match entry_type {
-                EntryType::Added => entry_str.push_str("Added: "),
-                EntryType::Fixed => entry_str.push_str("Fixed: "),
-                EntryType::Removed => entry_str.push_str("Removed: "),
+            let entry = Entry {
+                entry_type,
+                message,
+                mr_number,
+                issue_number,
             };
 
-            entry_str.push_str(message);
+            let entry_str = generate_changelog_entry_string(&entry);
 
-            if let Some(mr_n) = mr_number {
-                entry_str.push_str(&format!(
-                    " [MR ${mr_n}](https://link/to/{mr_n}): {mr_n}",
-                    mr_n = mr_n
-                ));
-            }
-
-            if let Some(issue_n) = issue_number {
-                entry_str.push_str(&format!(
-                    " [Issue #{issue_n}](https://link/to/{issue_n})",
-                    issue_n = issue_n
-                ));
-            }
-
-            let entry_file_name =
-                generate_changelog_entry_file_name(message, issue_number, mr_number);
+            let entry_file_name = generate_changelog_entry_file_name(&entry);
             let mut entry_file_path = entry_dir_path.clone();
             entry_file_path.push(&entry_file_name);
             if entry_file_path.exists() {
@@ -122,7 +137,10 @@ fn main() -> std::io::Result<()> {
             let mut output = File::create(entry_file_path)?;
             output.write_all(entry_str.as_bytes())?;
 
-            println!("Message: \n\t\"{}\"\nwas written to file \"{}\"", entry_str, entry_file_name);
+            println!(
+                "Message: \n\t\"{}\"\nwas written to file \"{}\"",
+                entry_str, entry_file_name
+            );
         }
         Some(Commands::Generate) => {
             panic!("Changelog generation has not been supported yet!");
