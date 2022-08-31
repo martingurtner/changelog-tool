@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 #[clap(author, version, about, long_about = None)]
 struct Cli {
     #[clap(subcommand)]
-    command: Option<Commands>,
+    command: Commands,
 }
 
 #[derive(Subcommand)]
@@ -42,8 +42,11 @@ enum Commands {
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 enum EntryType {
     Added,
-    Fixed,
+    Changed,
+    Deprecated,
     Removed,
+    Fixed,
+    Security,
 }
 
 struct Entry<'a> {
@@ -57,23 +60,26 @@ fn generate_changelog_entry_string(entry: &Entry) -> String {
     let mut entry_str = String::with_capacity(500);
 
     match entry.entry_type {
-        EntryType::Added => entry_str.push_str("Added: "),
-        EntryType::Fixed => entry_str.push_str("Fixed: "),
-        EntryType::Removed => entry_str.push_str("Removed: "),
+        EntryType::Added =>  entry_str.push_str("Added: "),
+        EntryType::Changed =>  entry_str.push_str("Changed: "),
+        EntryType::Deprecated =>  entry_str.push_str("Deprecated: "),
+        EntryType::Removed =>  entry_str.push_str("Removed: "),
+        EntryType::Fixed =>  entry_str.push_str("Fixed: "),
+        EntryType::Security =>  entry_str.push_str("Security: ")
     };
 
     entry_str.push_str(entry.message);
 
     if let Some(mr_n) = entry.mr_number {
         entry_str.push_str(&format!(
-            " [MR ${mr_n}](https://link/to/{mr_n}): {mr_n}",
+            " [[MR-!{mr_n}](http://rheldispptapp1/gitlab/kcvc/kcvc/-/merge_requests/{mr_n})]",
             mr_n = mr_n
         ));
     }
 
     if let Some(issue_n) = entry.issue_number {
         entry_str.push_str(&format!(
-            " [Issue #{issue_n}](https://link/to/{issue_n})",
+            " [[ISSUE-#{issue_n}](http://rheldispptapp1/gitlab/kcvc/kcvc/-/merge_requests/{issue_n})]",
             issue_n = issue_n
         ));
     }
@@ -103,7 +109,7 @@ fn generate_changelog_entry_file_name(entry: &Entry) -> String {
             entry_file_name.push(c);
         }
     }
-    entry_file_name.push_str(".txt");
+    entry_file_name.push_str(".md");
 
     entry_file_name
 }
@@ -112,13 +118,13 @@ fn main() -> std::io::Result<()> {
     let cli = Cli::parse();
 
     match &cli.command {
-        Some(Commands::Entry {
+        Commands::Entry {
             entry_type,
             message,
             mr_number,
             issue_number,
             entry_dir_path,
-        }) => {
+        } => {
             let entry = Entry {
                 entry_type,
                 message,
@@ -142,10 +148,9 @@ fn main() -> std::io::Result<()> {
                 entry_str, entry_file_name
             );
         }
-        Some(Commands::Generate) => {
+        Commands::Generate => {
             panic!("Changelog generation has not been supported yet!");
         }
-        None => {}
     }
 
     Ok(())
