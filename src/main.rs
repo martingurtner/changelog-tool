@@ -4,6 +4,9 @@ use std::{io::Write, path::PathBuf};
 
 use clap::{Parser, Subcommand, ValueEnum};
 
+static ISSUE_URL: &str = "http://gitlab/repo/-/issues/";
+static MERGE_REQUEST_URL: &str = "http://gitlab/repo/-/merge_requests/";
+
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
 struct Cli {
@@ -74,18 +77,22 @@ impl fmt::Display for Entry<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result: fmt::Result;
         result = write!(f, "{}: {}", self.entry_type, self.message);
-        
+
         if let Some(mr_n) = self.mr_number {
-            result = write!(f, 
-                " [[MR-!{mr_n}](http://rheldispptapp1/gitlab/kcvc/kcvc/-/merge_requests/{mr_n})]",
-                mr_n = mr_n
+            result = write!(
+                f,
+                " [[MR-!{mr_n}]({mergee_request_url}/{mr_n})]",
+                mr_n = mr_n,
+                mergee_request_url = MERGE_REQUEST_URL,
             );
         }
-    
+
         if let Some(issue_n) = self.issue_number {
-            result = write!(f, 
-                " [[ISSUE-#{issue_n}](http://rheldispptapp1/gitlab/kcvc/kcvc/-/merge_requests/{issue_n})]",
-                issue_n = issue_n
+            result = write!(
+                f,
+                " [[ISSUE-#{issue_n}]({issue_url}{issue_n})]",
+                issue_n = issue_n,
+                issue_url = ISSUE_URL,
             );
         }
 
