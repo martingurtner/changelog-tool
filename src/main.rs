@@ -1,3 +1,4 @@
+use std::fmt;
 use std::fs::File;
 use std::{io::Write, path::PathBuf};
 
@@ -49,6 +50,19 @@ enum EntryType {
     Security,
 }
 
+impl fmt::Display for EntryType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            EntryType::Added => write!(f, "Added"),
+            EntryType::Changed => write!(f, "Changed"),
+            EntryType::Deprecated => write!(f, "Deprecated"),
+            EntryType::Removed => write!(f, "Removed"),
+            EntryType::Fixed => write!(f, "Fixed"),
+            EntryType::Security => write!(f, "Security"),
+        }
+    }
+}
+
 struct Entry<'a> {
     entry_type: &'a EntryType,
     message: &'a String,
@@ -56,35 +70,27 @@ struct Entry<'a> {
     mr_number: &'a Option<u32>,
 }
 
-fn generate_changelog_entry_string(entry: &Entry) -> String {
-    let mut entry_str = String::with_capacity(500);
+impl fmt::Display for Entry<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut result: fmt::Result;
+        result = write!(f, "{}: {}", self.entry_type, self.message);
+        
+        if let Some(mr_n) = self.mr_number {
+            result = write!(f, 
+                " [[MR-!{mr_n}](http://rheldispptapp1/gitlab/kcvc/kcvc/-/merge_requests/{mr_n})]",
+                mr_n = mr_n
+            );
+        }
+    
+        if let Some(issue_n) = self.issue_number {
+            result = write!(f, 
+                " [[ISSUE-#{issue_n}](http://rheldispptapp1/gitlab/kcvc/kcvc/-/merge_requests/{issue_n})]",
+                issue_n = issue_n
+            );
+        }
 
-    match entry.entry_type {
-        EntryType::Added =>  entry_str.push_str("Added: "),
-        EntryType::Changed =>  entry_str.push_str("Changed: "),
-        EntryType::Deprecated =>  entry_str.push_str("Deprecated: "),
-        EntryType::Removed =>  entry_str.push_str("Removed: "),
-        EntryType::Fixed =>  entry_str.push_str("Fixed: "),
-        EntryType::Security =>  entry_str.push_str("Security: ")
-    };
-
-    entry_str.push_str(entry.message);
-
-    if let Some(mr_n) = entry.mr_number {
-        entry_str.push_str(&format!(
-            " [[MR-!{mr_n}](http://rheldispptapp1/gitlab/kcvc/kcvc/-/merge_requests/{mr_n})]",
-            mr_n = mr_n
-        ));
+        result
     }
-
-    if let Some(issue_n) = entry.issue_number {
-        entry_str.push_str(&format!(
-            " [[ISSUE-#{issue_n}](http://rheldispptapp1/gitlab/kcvc/kcvc/-/merge_requests/{issue_n})]",
-            issue_n = issue_n
-        ));
-    }
-
-    entry_str
 }
 
 fn generate_changelog_entry_file_name(entry: &Entry) -> String {
@@ -132,7 +138,7 @@ fn main() -> std::io::Result<()> {
                 issue_number,
             };
 
-            let entry_str = generate_changelog_entry_string(&entry);
+            let entry_str = entry.to_string();
 
             let entry_file_name = generate_changelog_entry_file_name(&entry);
             let mut entry_file_path = entry_dir_path.clone();
