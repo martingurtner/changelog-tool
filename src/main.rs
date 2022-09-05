@@ -1,4 +1,6 @@
+use std::collections::HashMap;
 use std::fmt;
+use std::fs;
 use std::fs::File;
 use std::{io::Write, path::PathBuf};
 
@@ -40,7 +42,11 @@ enum Commands {
     },
 
     /// Generates changelog
-    Generate,
+    Generate {
+        /// Path to the directory with changelog entries
+        #[clap(value_parser)]
+        entry_dir_path: PathBuf,
+    },
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -161,8 +167,43 @@ fn main() -> std::io::Result<()> {
                 entry_str, entry_file_name
             );
         }
-        Commands::Generate => {
-            panic!("Changelog generation has not been supported yet!");
+        Commands::Generate { entry_dir_path } => {
+            let mut changelog_entries: HashMap<std::string::String, Vec<std::string::String>> =
+                HashMap::new();
+
+            let paths = fs::read_dir(entry_dir_path).unwrap();
+            let md_files = paths
+                .into_iter()
+                .filter(|p| p.as_ref().unwrap().path().extension().unwrap() == "md");
+
+            for path in md_files {
+                let p_path = path.unwrap().path();
+                let file_content = fs::read_to_string(&p_path).unwrap();
+
+                match file_content.split_once(": ") {
+                    Some((entry_type, entry_msg)) => {
+                        let entry_type_str = String::from(entry_type);
+                        let entry_msg_str = String::from(entry_msg);
+
+                        changelog_entries
+                            .entry(entry_type_str)
+                            .and_modify(|values| values.push(entry_msg_str.clone()))
+                            .or_insert(vec![entry_msg_str]);
+                    }
+                    None => println!(
+                        "Skipping {} due to a wrong format of the message.",
+                        p_path.display()
+                    ),
+                }
+            }
+
+            println!("# Changelog:");
+            for (k, v) in changelog_entries {
+                println!("## {k}: ");
+                for entry in v {
+                    println!(" * {entry}");
+                }
+            }
         }
     }
 
